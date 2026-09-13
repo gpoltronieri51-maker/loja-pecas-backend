@@ -1,3 +1,4 @@
+const adRoutes = require('./routes/ads');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -20,4 +21,5 @@ app.use('/api/pedidos', orderRoutes);
 app.use('/api/pagamentos', paymentRoutes);
 
 const PORT = process.env.PORT || 3000;
+app.use('/api/anuncios', adRoutes);
 app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
