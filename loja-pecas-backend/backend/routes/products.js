@@ -35,9 +35,10 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const resultado = await pool.query(
-      `SELECT p.*, c.nome AS categoria_nome FROM produtos p
-       LEFT JOIN categorias c ON c.id = p.categoria_id
-       WHERE p.id = $1`,
+     `SELECT p.*, c.nome AS categoria_nome FROM produtos p
+             LEFT JOIN categorias c ON c.id = p.categoria_id
+             WHERE p.ativo = TRUE
+             AND (p.expira_em IS NULL OR p.expira_em > NOW())`;
       [req.params.id]
     );
     if (resultado.rows.length === 0) return res.status(404).json({ erro: 'Produto não encontrado' });
