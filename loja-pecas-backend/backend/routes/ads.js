@@ -14,21 +14,25 @@ const PRECOS_ANUNCIO = {
 };
 
 // Cria o anúncio (ainda pendente) e gera o link de pagamento
+// Anúncios de terceiros NÃO passam pelo carrinho/checkout da loja — o comprador
+// fala direto com o anunciante pelo WhatsApp informado aqui.
 router.post('/criar', autenticar, async (req, res) => {
-  const { titulo, descricao, categoria_id, preco, condicao, imagem_url, duracao_dias } = req.body;
+  const { titulo, descricao, categoria_id, preco, condicao, imagem_url, duracao_dias, contato_whatsapp } = req.body;
   const dias = Number(duracao_dias);
 
   if (!titulo || !preco) return res.status(400).json({ erro: 'Título e preço são obrigatórios' });
+  if (!contato_whatsapp) return res.status(400).json({ erro: 'Informe um WhatsApp para contato' });
   if (!PRECOS_ANUNCIO[dias]) return res.status(400).json({ erro: 'Duração de anúncio inválida' });
 
   const valorAnuncio = PRECOS_ANUNCIO[dias];
 
   try {
-    // cria o produto já no banco, mas inativo até o pagamento ser confirmado
+    // cria o produto já no banco, mas inativo até o pagamento do anúncio ser confirmado
+    // estoque fica em 0 e nunca é vendido pelo carrinho — é só uma vitrine com contato direto
     const resultado = await pool.query(
-      `INSERT INTO produtos (titulo, descricao, categoria_id, preco, estoque, condicao, imagem_url, ativo, anunciante_id, status_anuncio)
-       VALUES ($1,$2,$3,$4,1,$5,$6,FALSE,$7,'pendente') RETURNING id`,
-      [titulo, descricao || null, categoria_id || null, preco, condicao || 'usado', imagem_url || null, req.usuario.id]
+      `INSERT INTO produtos (titulo, descricao, categoria_id, preco, estoque, condicao, imagem_url, ativo, anunciante_id, status_anuncio, contato_whatsapp)
+       VALUES ($1,$2,$3,$4,0,$5,$6,FALSE,$7,'pendente',$8) RETURNING id`,
+      [titulo, descricao || null, categoria_id || null, preco, condicao || 'usado', imagem_url || null, req.usuario.id, contato_whatsapp]
     );
     const produtoId = resultado.rows[0].id;
 
@@ -61,12 +65,10 @@ router.post('/criar', autenticar, async (req, res) => {
   }
 });
 
-// Lista os preços disponíveis (pra montar a tela sem repetir os valores no front)
 router.get('/precos', (req, res) => {
   res.json(PRECOS_ANUNCIO);
 });
 
-// Status de um anúncio específico (usado na página de confirmação)
 router.get('/status/:id', async (req, res) => {
   const resultado = await pool.query(
     'SELECT id, titulo, status_anuncio, ativo, expira_em FROM produtos WHERE id = $1',
@@ -76,7 +78,6 @@ router.get('/status/:id', async (req, res) => {
   res.json(resultado.rows[0]);
 });
 
-// Anúncios do próprio usuário logado
 router.get('/meus', autenticar, async (req, res) => {
   const resultado = await pool.query(
     'SELECT * FROM produtos WHERE anunciante_id = $1 ORDER BY criado_em DESC',
